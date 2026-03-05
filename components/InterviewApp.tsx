@@ -522,7 +522,7 @@ HARD RULES
                   }`}
                >
                  <div
-                    className={`px-4 sm:px-5 py-3 sm:py-4 rounded-[19px] md:rounded-[23px] text-[14px] sm:text-[15px] leading-relaxed whitespace-pre-wrap ${
+                    className={`px-4 sm:px-5 py-3 sm:py-4 rounded-[19px] md:rounded-[23px] text-[16px] sm:text-[18px] leading-relaxed whitespace-pre-wrap ${
                       msg.role === "user"
                         ? "bg-gradient-to-br from-blue-500 to-blue-700 text-white"
                         : "bg-slate-900/90 backdrop-blur-xl text-slate-200"
@@ -562,7 +562,7 @@ HARD RULES
       </div>
 
       {/* ── Controls ────────────────────────────────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 pb-6 sm:pb-8 pt-20 sm:pt-24 px-4 sm:px-6 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pointer-events-none">
+      <div className="fixed bottom-0 left-0 right-0 z-20 pb-6 sm:pb-8 pt-4 sm:pt-6 px-4 sm:px-6 pointer-events-none">
         <div className="max-w-md mx-auto pointer-events-auto">
           <div className="flex items-center justify-center gap-6 sm:gap-8 relative">
             
