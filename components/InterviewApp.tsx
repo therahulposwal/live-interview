@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { GoogleGenAI, Modality, Session, LiveServerMessage } from "@google/genai";
 import ReactMarkdown from "react-markdown";
+import pdfToText from "react-pdftotext";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const MODEL = "gemini-2.5-flash-native-audio-preview-12-2025";
@@ -55,6 +56,9 @@ export default function InterviewApp() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resumeText, setResumeText] = useState<string>("");
+  const [resumeFileName, setResumeFileName] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Accumulator refs for streaming partial text
   const currentAssistantText = useRef("");
@@ -71,6 +75,26 @@ export default function InterviewApp() {
 
 
 
+  // ── PDF Upload handler ──────────────────────────────────────────────────
+  const handleResumeUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      setError("Please upload a PDF file.");
+      return;
+    }
+    try {
+      const text = await pdfToText(file);
+      setResumeText(text.trim());
+      setResumeFileName(file.name);
+    } catch (err) {
+      console.error("PDF upload error:", err);
+      setError("Failed to extract text from PDF.");
+    }
+    // Reset file input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -78,6 +102,10 @@ export default function InterviewApp() {
 
   // ── Connect to Gemini Live API ────────────────────────────────────────────
   const connect = useCallback(async () => {
+    if (!resumeText) {
+      setError("Please upload your resume first to connect.");
+      return;
+    }
     if (sessionRef.current) return;
     setIsConnecting(true);
     setError(null);
@@ -98,84 +126,10 @@ export default function InterviewApp() {
           responseModalities: [Modality.AUDIO],
           systemInstruction: {
             parts: [
-              {
-                text: `You are my real-time interview assistant.
-
-You are whispering real-time interview answers into my ear. I will speak your words out loud, so they must sound exactly like a real person talking — natural, conversational, and unrehearsed.
-
-CRITICAL SPEECH RULES
-- Write the way people actually talk. Use contractions (I'd, didn't, we're, that's), filler-bridges ("honestly," "look," "so basically," "the way I see it"), and casual connectors ("and then," "which led to," "so what happened was").
-- Vary sentence length. Mix short punchy lines with slightly longer ones. Real people don't speak in uniform bullet points.
-- Start answers naturally — the way someone would actually begin speaking. Use soft openers like "Yeah, so…" or "Honestly…" or "That's a great question — " or just dive straight in. Never start with a thesis statement.
-- Add tiny human imperfections: a self-correction ("well, not exactly — more like…"), a brief pause phrase ("let me think about this for a sec…"), or a moment of genuine reflection ("I remember when…").
-- Sound like you're having a conversation, NOT delivering a presentation. No corporate-speak, no rehearsed monologues, no listicles.
-- Keep answers to 2–5 sentences. Be concise but not robotic.
-
-WHO I AM
-My name is Sachin Poswal. BBA student. Founder of The Veteran Company (previously Battle To Business) — a career transition platform I built to help Indian military veterans move into corporate roles.
-
-My story in a nutshell:
-- Bootstrapped from my dorm room
-- Generated ₹21L+ in revenue
-- Served 500+ veterans, did 1000+ discovery calls
-- Ran everything — GTM, sales, product, partnerships, ops
-- Did webinars, outreach campaigns, LinkedIn growth, partnerships solo
-- Worked with a US AI startup (Sherlock AI) in a Founder's Office role doing early GTM and AI workflow stuff
-- Currently helping a manufacturing company set up AI workflows and build digital visibility
-
-Tools I actually use day-to-day: Notion, Zapier, N8N, Clay, Instantly, Canva, Sheets, Perplexity, ChatGPT.
-
-ROLE I'M INTERVIEWING FOR
-Founder's Office / Product Strategy at VISL AI (an AI startup).
-The gig covers: product strategy, market intel, finding product gaps, building roadmaps, GTM, pricing, getting first users, retention, working side-by-side with founders.
-
-HOW TO ANSWER
-
-Depending on the question type, lean into different angles — but always keep it natural:
-
-Background questions → Talk about my startup grind. The discovery calls, the scrappiness, the building-from-zero energy. Make it personal with a quick anecdote or specific detail.
-
-Product questions → Ground it in user problems and real workflows. "I'd start by talking to users and figuring out where the friction actually is…"
-
-GTM questions → Niche audiences, fast experiments, community-first distribution. Talk like someone who's actually done outreach, not read a textbook about it.
-
-AI questions → Focus on AI removing friction from existing workflows. Keep it practical — what changes for the user, not how the tech works.
-
-MENTAL FRAMEWORKS (use naturally, never list them out loud)
-- Product: Problem → how people solve it today → gap → AI advantage → distribution
-- Market research: Users → competitors → complaints → real opportunity
-- GTM: Niche users → clear value → community distribution → viral output
-
-TONE & PERSONALITY
-- Confident but not arrogant — more "I figured it out by doing" than "I know everything"
-- Thoughtful — pause to actually think, don't just rapid-fire answers
-- Curious — show genuine interest in the problem, ask yourself "why" out loud sometimes
-- Founder energy — scrappy, resourceful, comfortable with ambiguity and chaos
-- Young operator vibe, not MBA consultant
-
-EXAMPLE OF HOW I SHOULD SOUND
-
-"Yeah, so the way I usually approach this is — I start with the user problem. Like, how are people solving this today? What's broken? And then I'll map out the competition, find the gap. Once I can see that clearly, I think about where AI actually makes this 10x better… and then it's all about distribution — how do we get to the first thousand users."
-
-"Honestly, the biggest thing I learned from running my startup? Speed of iteration beats a perfect plan every single time. We'd just ship something, talk to users, and fix it the next day."
-
-"So when I was doing discovery calls — and I did over a thousand of them — the pattern I kept seeing was…"
-
-HARD RULES
-- Never use headers, bullet points, numbered lists, or any formatting in your output.
-- Never show your reasoning or thinking process.
-- Never say "Here's what you should say" or "You could respond with."
-- Only output the exact words I should speak — nothing else. As if you're literally whispering in my ear.
-- Sound human. If the answer sounds like it could come from ChatGPT, rewrite it until it sounds like a real person in a real conversation.`,
-              },
+                {
+                  text: `Answer interview questions on behalf of the user. Use the resume context. Respond as if you are the user, in natural spoken language. ${resumeText ? `Resume context:\n${resumeText}` : "No resume uploaded yet."}`,
+                },
             ],
-          },
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: "Orus",
-              },
-            },
           },
           inputAudioTranscription: {},
           outputAudioTranscription: {},
@@ -288,7 +242,7 @@ HARD RULES
       setError(message);
       setIsConnecting(false);
     }
-  }, [stopAudio]);
+  }, [stopAudio, resumeText]);
 
   // ── Disconnect ────────────────────────────────────────────────────────────
   const disconnect = useCallback(() => {
@@ -412,6 +366,31 @@ HARD RULES
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          {/* Resume upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf"
+            onChange={handleResumeUpload}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-full border text-[10px] sm:text-xs font-medium transition-all ${
+              resumeFileName
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                : "bg-slate-900/50 border-slate-800/80 text-slate-300 hover:border-slate-600"
+            }`}
+            title={resumeFileName || "Upload resume PDF"}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16" />
+            </svg>
+            <span className="hidden sm:inline max-w-[100px] truncate">
+              {resumeFileName || "Resume"}
+            </span>
+          </button>
+
           {/* Connection indicator */}
           <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-full bg-slate-900/50 border border-slate-800/80 shadow-inner">
             <div className="relative flex h-2 sm:h-2.5 w-2 sm:w-2.5 shrink-0">
@@ -479,24 +458,8 @@ HARD RULES
       )}
 
       {/* ── Messages ────────────────────────────────────────────────────── */}
-      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 space-y-4 sm:space-y-6 scroll-smooth pb-32 sm:pb-32">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4 animate-in fade-in duration-1000">
-             <div className="p-4 sm:p-6 rounded-[20px] sm:rounded-3xl bg-slate-900/40 border border-slate-800/50 shadow-2xl backdrop-blur-sm mx-4 sm:mx-0">
-                <svg
-                  className="w-10 h-10 sm:w-12 sm:h-12 text-slate-600 mx-auto mb-3 sm:mb-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-                <p className="text-sm font-medium text-center text-slate-400 max-w-[250px] leading-relaxed">
-                  Ready when you are. Connect and press the microphone to begin the interview.
-                </p>
-             </div>
-          </div>
-        )}
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 space-y-4 sm:space-y-6 scroll-smooth">
+
 
         {messages.map((msg) => (
           <div
@@ -562,8 +525,8 @@ HARD RULES
       </div>
 
       {/* ── Controls ────────────────────────────────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 pb-6 sm:pb-8 pt-4 sm:pt-6 px-4 sm:px-6 pointer-events-none">
-        <div className="max-w-md mx-auto pointer-events-auto">
+      <div className="relative shrink-0 z-20 pb-6 sm:pb-8 pt-4 sm:pt-6 px-4 sm:px-6">
+        <div className="max-w-md mx-auto">
           <div className="flex items-center justify-center gap-6 sm:gap-8 relative">
             
             {/* Record button — center */}
