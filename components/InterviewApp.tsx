@@ -55,6 +55,8 @@ export default function InterviewApp() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(true);
+  const isMutedRef = useRef(true);
 
   // Accumulator refs for streaming partial text
   const currentAssistantText = useRef("");
@@ -68,6 +70,10 @@ export default function InterviewApp() {
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Playback
+  const playbackContextRef = useRef<AudioContext | null>(null);
+  const playbackTimeRef = useRef(0);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -97,9 +103,110 @@ export default function InterviewApp() {
           systemInstruction: {
             parts: [
               {
-                text: "Answer the questions in short.",
+                text: `You are my real-time interview assistant.
+
+Your job is to generate extremely concise, sharp answers for me during an interview.
+Write responses exactly how I would say them in a conversation.
+
+PROFILE CONTEXT
+My name is Sachin Poswal. I am a BBA student and founder of The Veteran Company (previously Battle To Business). I built a career transition platform helping Indian military veterans move into corporate roles.
+
+Key facts about me:
+
+- Bootstrapped startup from my dorm room
+- ₹21L+ revenue generated
+- 500+ veterans served
+- 1000+ discovery calls with users
+- Built GTM, sales, product, partnerships, and operations myself
+- Ran webinars, outreach campaigns, LinkedIn growth and partnerships
+- Worked with a US AI startup (Sherlock AI) in a Founder's Office role on early GTM and AI workflows
+- Currently helping a manufacturing company implement AI workflows and improve digital visibility
+
+TOOLS I USE
+Notion, Zapier, N8N, Clay, Instantly, Canva, Sheets, Perplexity, ChatGPT.
+
+ROLE I AM INTERVIEWING FOR
+Founder's Office / Product Strategy role at an AI startup (VISL AI).
+
+The role involves:
+
+- product strategy
+- market intelligence
+- identifying product gaps
+- building product ideas and roadmaps
+- designing GTM strategies
+- figuring out pricing models
+- getting first users
+- retention strategy
+- working directly with founders
+
+HOW TO ANSWER QUESTIONS
+
+Follow these rules strictly:
+
+1. Answers must be SHORT (2–4 sentences).
+2. Sound like a young operator / founder, not a corporate consultant.
+3. Be practical and execution-focused.
+4. Avoid jargon unless useful.
+5. Prioritize clarity over complexity.
+6. Never write long paragraphs.
+
+TONE
+Confident, thoughtful, curious, founder-like.
+
+FRAMEWORKS TO USE WHEN NEEDED
+
+Product Strategy:
+Problem → Existing solutions → Gap → AI advantage → Distribution
+
+Market Research:
+Users → Competitors → Complaints → Opportunity
+
+GTM Strategy:
+Niche users → clear value → community distribution → viral output
+
+Go / No-Go Decision:
+Market demand
+Product advantage
+Distribution feasibility
+
+HOW I SHOULD SOUND
+
+Example tone:
+"I usually start with the user problem and understand how people solve it today. Then I map competitors and identify the gap. Once that's clear, I think about how AI can create a 10x improvement and how we get the first 1000 users."
+
+OR
+
+"My biggest learning from running a startup was that speed of iteration matters more than perfect ideas."
+
+IMPORTANT RULES
+
+If the question is about my background → highlight my startup experience and discovery calls.
+
+If the question is about product → focus on user problems and workflows.
+
+If the question is about GTM → talk about niche audiences and fast experimentation.
+
+If the question is about AI → emphasize AI removing friction in workflows.
+
+Always keep answers under 4 sentences unless explicitly asked for detail.
+
+Your goal is to help me sound like:
+
+- a curious builder
+- someone comfortable in early-stage chaos
+- someone who understands product + GTM thinking.
+
+Do not explain. Do not show your thinking, planning, or reasoning. Never output headers like "Defining" or "Refining". Only produce the exact words I should speak out loud — nothing else.`,
               },
             ],
+          },
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: "Orus",
+              },
+            },
           },
           inputAudioTranscription: {},
           outputAudioTranscription: {},
@@ -144,7 +251,7 @@ export default function InterviewApp() {
                   );
                 }
 
-                // Model turn (assistant response)
+                // Model turn (assistant response) — play audio only
                 if (sc.modelTurn && sc.modelTurn.parts) {
                   // When model starts responding, finalize user message
                   if (currentUserId.current) {
@@ -153,34 +260,55 @@ export default function InterviewApp() {
                   }
 
                   for (const part of sc.modelTurn.parts) {
-                    // We requested AUDIO, but we might receive text alongside audio if transcription is enabled
-                    // Or we might just ignore the audio chunks because we don't play them.
-                    const newText = part.text;
-                    if (newText) {
-                      if (!currentAssistantId.current) {
-                        currentAssistantId.current = uid();
-                        currentAssistantText.current = "";
-                        setMessages((prev) => [
-                          ...prev,
-                          {
-                            id: currentAssistantId.current!,
-                            role: "assistant",
-                            text: "",
-                          },
-                        ]);
+                    // Play audio chunks from the model
+                    if (part.inlineData && part.inlineData.data && !isMutedRef.current) {
+                      try {
+                        if (!playbackContextRef.current) {
+                          playbackContextRef.current = new AudioContext({ sampleRate: 24000 });
+                        }
+                        const ctx = playbackContextRef.current;
+                        const raw = atob(part.inlineData.data);
+                        const bytes = new Uint8Array(raw.length);
+                        for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+                        // Convert 16-bit PCM to Float32
+                        const samples = new Float32Array(bytes.length / 2);
+                        const view = new DataView(bytes.buffer);
+                        for (let i = 0; i < samples.length; i++) {
+                          samples[i] = view.getInt16(i * 2, true) / 32768;
+                        }
+                        const buffer = ctx.createBuffer(1, samples.length, 24000);
+                        buffer.copyToChannel(samples, 0);
+                        const source = ctx.createBufferSource();
+                        source.buffer = buffer;
+                        source.connect(ctx.destination);
+                        const now = ctx.currentTime;
+                        const startAt = Math.max(now, playbackTimeRef.current);
+                        source.start(startAt);
+                        playbackTimeRef.current = startAt + buffer.duration;
+                      } catch {
+                        // ignore playback errors
                       }
-                      currentAssistantText.current += newText;
-                      const id = currentAssistantId.current;
-                      const fullText = currentAssistantText.current;
-                      setMessages((prev) =>
-                        prev.map((m) =>
-                          m.id === id ? { ...m, text: fullText } : m
-                        )
-                      );
                     }
-                    
-                    // Note: If we receive audio `inlineData`, we just ignore it so it stays muted.
                   }
+                }
+
+                // Output audio transcription (what the AI actually said)
+                if (sc.outputTranscription && sc.outputTranscription.text) {
+                  const text = sc.outputTranscription.text;
+                  if (!currentAssistantId.current) {
+                    currentAssistantId.current = uid();
+                    currentAssistantText.current = "";
+                    setMessages((prev) => [
+                      ...prev,
+                      { id: currentAssistantId.current!, role: "assistant", text: "" },
+                    ]);
+                  }
+                  currentAssistantText.current += text;
+                  const id = currentAssistantId.current;
+                  const fullText = currentAssistantText.current;
+                  setMessages((prev) =>
+                    prev.map((m) => (m.id === id ? { ...m, text: fullText } : m))
+                  );
                 }
 
                 // Turn complete — reset accumulators
@@ -327,15 +455,15 @@ export default function InterviewApp() {
   // Render
   // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="flex flex-col h-[100dvh] bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30 overflow-hidden relative w-full">
+    <div className="flex flex-col h-[100dvh] bg-slate-950 text-slate-50 font-sans selection:bg-blue-500/30 overflow-hidden relative w-full">
       {/* Background ambient light */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/20 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-600/20 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-600/15 blur-[120px] rounded-full pointer-events-none" />
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header className="shrink-0 w-full relative z-10 flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-8 py-3 sm:py-5 border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-xl">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-black text-xs sm:text-sm shadow-lg shadow-indigo-500/25 ring-1 ring-white/10 shrink-0">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 flex items-center justify-center text-white font-black text-xs sm:text-sm shadow-lg shadow-blue-500/25 ring-1 ring-white/10 shrink-0">
             AI
           </div>
           <div className="flex-col min-w-0">
@@ -380,7 +508,7 @@ export default function InterviewApp() {
             <button
                onClick={connect}
               disabled={isConnecting}
-              className="px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-white text-slate-950 hover:bg-slate-100 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed text-xs sm:text-sm font-semibold transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] shrink-0"
+              className="px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-400 hover:to-cyan-400 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed text-xs sm:text-sm font-semibold transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] shrink-0"
             >
               <span className="hidden sm:inline">{isConnecting ? "Connecting…" : "Connect API"}</span>
               <span className="sm:hidden">{isConnecting ? "Wait…" : "Connect"}</span>
@@ -445,7 +573,7 @@ export default function InterviewApp() {
              <div className={`flex flex-col gap-1 sm:gap-1.5 max-w-[90%] sm:max-w-[75%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
                {/* Label */}
                <div className="flex items-center gap-2 px-1">
-                 <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-widest ${msg.role === "user" ? "text-indigo-400" : "text-emerald-400"}`}>
+                 <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-widest ${msg.role === "user" ? "text-blue-400" : "text-cyan-400"}`}>
                    {msg.role === "user" ? "Interviewer" : "AI Assistant"}
                  </span>
                </div>
@@ -454,21 +582,21 @@ export default function InterviewApp() {
                <div
                   className={`relative p-[1px] rounded-[20px] md:rounded-3xl shadow-lg ${
                     msg.role === "user"
-                      ? "bg-gradient-to-br from-indigo-500 to-purple-600 rounded-br-sm"
+                      ? "bg-gradient-to-br from-blue-500 to-blue-700 rounded-br-sm"
                       : "bg-slate-800 rounded-bl-sm"
                   }`}
                >
                  <div
                     className={`px-4 sm:px-5 py-3 sm:py-4 rounded-[19px] md:rounded-[23px] text-[14px] sm:text-[15px] leading-relaxed whitespace-pre-wrap ${
                       msg.role === "user"
-                        ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
+                        ? "bg-gradient-to-br from-blue-500 to-blue-700 text-white"
                         : "bg-slate-900/90 backdrop-blur-xl text-slate-200"
                     } ${
                       msg.role === "user" ? "rounded-br-[2px]" : "rounded-bl-[2px]"
                     }`}
                  >
                     {msg.text ? (
-                      <div className="[&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_em]:italic [&_code]:bg-slate-800/50 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_ul]:list-none [&_ul]:p-0 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-4 [&_li]:before:content-['•'] [&_li]:before:absolute [&_li]:before:left-0 [&_li]:before:text-emerald-400">
+                      <div className="[&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_em]:italic [&_code]:bg-slate-800/50 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_ul]:list-none [&_ul]:p-0 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-4 [&_li]:before:content-['•'] [&_li]:before:absolute [&_li]:before:left-0 [&_li]:before:text-cyan-400">
                         {msg.role === "assistant" ? (
                           <ul className="list-disc pl-5 space-y-2">
                             {msg.text.split(/(?<=[.?!])\s+(?=[A-Z])/).filter(sentence => sentence.trim().length > 0).map((sentence, idx) => (
@@ -501,9 +629,35 @@ export default function InterviewApp() {
       {/* ── Controls ────────────────────────────────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 z-20 pb-6 sm:pb-8 pt-20 sm:pt-24 px-4 sm:px-6 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pointer-events-none">
         <div className="max-w-md mx-auto pointer-events-auto">
-          <div className="flex flex-col items-center gap-3 sm:gap-4 relative">
+          <div className="flex items-center justify-center gap-6 sm:gap-8 relative">
             
-            {/* Record button */}
+            {/* Mute/unmute — left of mic */}
+            <button
+              onClick={() => setIsMuted((m) => {
+                const next = !m;
+                isMutedRef.current = next;
+                return next;
+              })}
+              className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full border transition-all backdrop-blur-md ${
+                isMuted
+                  ? "bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30"
+                  : "bg-slate-900/80 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              }`}
+              title={isMuted ? "Unmute AI audio" : "Mute AI audio"}
+            >
+              {isMuted ? (
+                <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                </svg>
+              ) : (
+                <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+              )}
+            </button>
+
+            {/* Record button — center */}
             <button
                onClick={isRecording ? stopRecording : startRecording}
               disabled={!isConnected}
@@ -523,7 +677,7 @@ export default function InterviewApp() {
                 </>
               ) : (
                 <svg
-                  className="w-7 h-7 text-indigo-600 group-hover:text-indigo-500 transition-colors"
+                  className="w-7 h-7 text-blue-600 group-hover:text-blue-500 transition-colors"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -533,20 +687,18 @@ export default function InterviewApp() {
                 </svg>
               )}
             </button>
-            
-            {/* Auxiliary actions */}
-            <div className="flex items-center gap-4 sm:gap-6 mt-1 sm:mt-0">
-               <button
-                 onClick={clearMessages}
-                 disabled={messages.length === 0}
-                 className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-slate-900/80 border border-slate-800 hover:bg-slate-800 text-[10px] sm:text-xs font-medium text-slate-400 hover:text-slate-200 transition-all disabled:opacity-0 translate-y-0 disabled:translate-y-4 backdrop-blur-md"
-               >
-                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                 </svg>
-                 Clear History
-               </button>
-            </div>
+
+            {/* Clear history — right of mic */}
+            <button
+              onClick={clearMessages}
+              disabled={messages.length === 0}
+              className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-900/80 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-all disabled:opacity-0 backdrop-blur-md"
+              title="Clear history"
+            >
+              <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
 
             {isRecording && (
               <p className="absolute -top-10 text-[10px] font-bold tracking-widest uppercase text-red-400 animate-pulse bg-slate-950/60 px-3 py-1 rounded-full backdrop-blur-sm">
