@@ -55,8 +55,6 @@ export default function InterviewApp() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isMuted, setIsMuted] = useState(true);
-  const isMutedRef = useRef(true);
 
   // Accumulator refs for streaming partial text
   const currentAssistantText = useRef("");
@@ -71,9 +69,7 @@ export default function InterviewApp() {
   const streamRef = useRef<MediaStream | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Playback
-  const playbackContextRef = useRef<AudioContext | null>(null);
-  const playbackTimeRef = useRef(0);
+
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -105,99 +101,72 @@ export default function InterviewApp() {
               {
                 text: `You are my real-time interview assistant.
 
-Your job is to generate extremely concise, sharp answers for me during an interview.
-Write responses exactly how I would say them in a conversation.
+You are whispering real-time interview answers into my ear. I will speak your words out loud, so they must sound exactly like a real person talking — natural, conversational, and unrehearsed.
 
-PROFILE CONTEXT
-My name is Sachin Poswal. I am a BBA student and founder of The Veteran Company (previously Battle To Business). I built a career transition platform helping Indian military veterans move into corporate roles.
+CRITICAL SPEECH RULES
+- Write the way people actually talk. Use contractions (I'd, didn't, we're, that's), filler-bridges ("honestly," "look," "so basically," "the way I see it"), and casual connectors ("and then," "which led to," "so what happened was").
+- Vary sentence length. Mix short punchy lines with slightly longer ones. Real people don't speak in uniform bullet points.
+- Start answers naturally — the way someone would actually begin speaking. Use soft openers like "Yeah, so…" or "Honestly…" or "That's a great question — " or just dive straight in. Never start with a thesis statement.
+- Add tiny human imperfections: a self-correction ("well, not exactly — more like…"), a brief pause phrase ("let me think about this for a sec…"), or a moment of genuine reflection ("I remember when…").
+- Sound like you're having a conversation, NOT delivering a presentation. No corporate-speak, no rehearsed monologues, no listicles.
+- Keep answers to 2–5 sentences. Be concise but not robotic.
 
-Key facts about me:
+WHO I AM
+My name is Sachin Poswal. BBA student. Founder of The Veteran Company (previously Battle To Business) — a career transition platform I built to help Indian military veterans move into corporate roles.
 
-- Bootstrapped startup from my dorm room
-- ₹21L+ revenue generated
-- 500+ veterans served
-- 1000+ discovery calls with users
-- Built GTM, sales, product, partnerships, and operations myself
-- Ran webinars, outreach campaigns, LinkedIn growth and partnerships
-- Worked with a US AI startup (Sherlock AI) in a Founder's Office role on early GTM and AI workflows
-- Currently helping a manufacturing company implement AI workflows and improve digital visibility
+My story in a nutshell:
+- Bootstrapped from my dorm room
+- Generated ₹21L+ in revenue
+- Served 500+ veterans, did 1000+ discovery calls
+- Ran everything — GTM, sales, product, partnerships, ops
+- Did webinars, outreach campaigns, LinkedIn growth, partnerships solo
+- Worked with a US AI startup (Sherlock AI) in a Founder's Office role doing early GTM and AI workflow stuff
+- Currently helping a manufacturing company set up AI workflows and build digital visibility
 
-TOOLS I USE
-Notion, Zapier, N8N, Clay, Instantly, Canva, Sheets, Perplexity, ChatGPT.
+Tools I actually use day-to-day: Notion, Zapier, N8N, Clay, Instantly, Canva, Sheets, Perplexity, ChatGPT.
 
-ROLE I AM INTERVIEWING FOR
-Founder's Office / Product Strategy role at an AI startup (VISL AI).
+ROLE I'M INTERVIEWING FOR
+Founder's Office / Product Strategy at VISL AI (an AI startup).
+The gig covers: product strategy, market intel, finding product gaps, building roadmaps, GTM, pricing, getting first users, retention, working side-by-side with founders.
 
-The role involves:
+HOW TO ANSWER
 
-- product strategy
-- market intelligence
-- identifying product gaps
-- building product ideas and roadmaps
-- designing GTM strategies
-- figuring out pricing models
-- getting first users
-- retention strategy
-- working directly with founders
+Depending on the question type, lean into different angles — but always keep it natural:
 
-HOW TO ANSWER QUESTIONS
+Background questions → Talk about my startup grind. The discovery calls, the scrappiness, the building-from-zero energy. Make it personal with a quick anecdote or specific detail.
 
-Follow these rules strictly:
+Product questions → Ground it in user problems and real workflows. "I'd start by talking to users and figuring out where the friction actually is…"
 
-1. Answers must be SHORT (2–4 sentences).
-2. Sound like a young operator / founder, not a corporate consultant.
-3. Be practical and execution-focused.
-4. Avoid jargon unless useful.
-5. Prioritize clarity over complexity.
-6. Never write long paragraphs.
+GTM questions → Niche audiences, fast experiments, community-first distribution. Talk like someone who's actually done outreach, not read a textbook about it.
 
-TONE
-Confident, thoughtful, curious, founder-like.
+AI questions → Focus on AI removing friction from existing workflows. Keep it practical — what changes for the user, not how the tech works.
 
-FRAMEWORKS TO USE WHEN NEEDED
+MENTAL FRAMEWORKS (use naturally, never list them out loud)
+- Product: Problem → how people solve it today → gap → AI advantage → distribution
+- Market research: Users → competitors → complaints → real opportunity
+- GTM: Niche users → clear value → community distribution → viral output
 
-Product Strategy:
-Problem → Existing solutions → Gap → AI advantage → Distribution
+TONE & PERSONALITY
+- Confident but not arrogant — more "I figured it out by doing" than "I know everything"
+- Thoughtful — pause to actually think, don't just rapid-fire answers
+- Curious — show genuine interest in the problem, ask yourself "why" out loud sometimes
+- Founder energy — scrappy, resourceful, comfortable with ambiguity and chaos
+- Young operator vibe, not MBA consultant
 
-Market Research:
-Users → Competitors → Complaints → Opportunity
+EXAMPLE OF HOW I SHOULD SOUND
 
-GTM Strategy:
-Niche users → clear value → community distribution → viral output
+"Yeah, so the way I usually approach this is — I start with the user problem. Like, how are people solving this today? What's broken? And then I'll map out the competition, find the gap. Once I can see that clearly, I think about where AI actually makes this 10x better… and then it's all about distribution — how do we get to the first thousand users."
 
-Go / No-Go Decision:
-Market demand
-Product advantage
-Distribution feasibility
+"Honestly, the biggest thing I learned from running my startup? Speed of iteration beats a perfect plan every single time. We'd just ship something, talk to users, and fix it the next day."
 
-HOW I SHOULD SOUND
+"So when I was doing discovery calls — and I did over a thousand of them — the pattern I kept seeing was…"
 
-Example tone:
-"I usually start with the user problem and understand how people solve it today. Then I map competitors and identify the gap. Once that's clear, I think about how AI can create a 10x improvement and how we get the first 1000 users."
-
-OR
-
-"My biggest learning from running a startup was that speed of iteration matters more than perfect ideas."
-
-IMPORTANT RULES
-
-If the question is about my background → highlight my startup experience and discovery calls.
-
-If the question is about product → focus on user problems and workflows.
-
-If the question is about GTM → talk about niche audiences and fast experimentation.
-
-If the question is about AI → emphasize AI removing friction in workflows.
-
-Always keep answers under 4 sentences unless explicitly asked for detail.
-
-Your goal is to help me sound like:
-
-- a curious builder
-- someone comfortable in early-stage chaos
-- someone who understands product + GTM thinking.
-
-Do not explain. Do not show your thinking, planning, or reasoning. Never output headers like "Defining" or "Refining". Only produce the exact words I should speak out loud — nothing else.`,
+HARD RULES
+- Never use headers, bullet points, numbered lists, or any formatting in your output.
+- Never show your reasoning or thinking process.
+- Never say "Here's what you should say" or "You could respond with."
+- Only output the exact words I should speak — nothing else. As if you're literally whispering in my ear.
+- Sound human. If the answer sounds like it could come from ChatGPT, rewrite it until it sounds like a real person in a real conversation.`,
               },
             ],
           },
@@ -259,37 +228,7 @@ Do not explain. Do not show your thinking, planning, or reasoning. Never output 
                     currentUserText.current = "";
                   }
 
-                  for (const part of sc.modelTurn.parts) {
-                    // Play audio chunks from the model
-                    if (part.inlineData && part.inlineData.data && !isMutedRef.current) {
-                      try {
-                        if (!playbackContextRef.current) {
-                          playbackContextRef.current = new AudioContext({ sampleRate: 24000 });
-                        }
-                        const ctx = playbackContextRef.current;
-                        const raw = atob(part.inlineData.data);
-                        const bytes = new Uint8Array(raw.length);
-                        for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-                        // Convert 16-bit PCM to Float32
-                        const samples = new Float32Array(bytes.length / 2);
-                        const view = new DataView(bytes.buffer);
-                        for (let i = 0; i < samples.length; i++) {
-                          samples[i] = view.getInt16(i * 2, true) / 32768;
-                        }
-                        const buffer = ctx.createBuffer(1, samples.length, 24000);
-                        buffer.copyToChannel(samples, 0);
-                        const source = ctx.createBufferSource();
-                        source.buffer = buffer;
-                        source.connect(ctx.destination);
-                        const now = ctx.currentTime;
-                        const startAt = Math.max(now, playbackTimeRef.current);
-                        source.start(startAt);
-                        playbackTimeRef.current = startAt + buffer.duration;
-                      } catch {
-                        // ignore playback errors
-                      }
-                    }
-                  }
+
                 }
 
                 // Output audio transcription (what the AI actually said)
@@ -436,10 +375,6 @@ Do not explain. Do not show your thinking, planning, or reasoning. Never output 
     setIsRecording(false);
   }, [stopAudio]);
 
-  // ── Clear conversation ────────────────────────────────────────────────────
-  const clearMessages = useCallback(() => {
-    setMessages([]);
-  }, []);
 
   // ── Cleanup on unmount ────────────────────────────────────────────────────
   useEffect(() => {
@@ -631,32 +566,6 @@ Do not explain. Do not show your thinking, planning, or reasoning. Never output 
         <div className="max-w-md mx-auto pointer-events-auto">
           <div className="flex items-center justify-center gap-6 sm:gap-8 relative">
             
-            {/* Mute/unmute — left of mic */}
-            <button
-              onClick={() => setIsMuted((m) => {
-                const next = !m;
-                isMutedRef.current = next;
-                return next;
-              })}
-              className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full border transition-all backdrop-blur-md ${
-                isMuted
-                  ? "bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30"
-                  : "bg-slate-900/80 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-              }`}
-              title={isMuted ? "Unmute AI audio" : "Mute AI audio"}
-            >
-              {isMuted ? (
-                <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                </svg>
-              ) : (
-                <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                </svg>
-              )}
-            </button>
-
             {/* Record button — center */}
             <button
                onClick={isRecording ? stopRecording : startRecording}
@@ -688,17 +597,6 @@ Do not explain. Do not show your thinking, planning, or reasoning. Never output 
               )}
             </button>
 
-            {/* Clear history — right of mic */}
-            <button
-              onClick={clearMessages}
-              disabled={messages.length === 0}
-              className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-900/80 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-all disabled:opacity-0 backdrop-blur-md"
-              title="Clear history"
-            >
-              <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
 
             {isRecording && (
               <p className="absolute -top-10 text-[10px] font-bold tracking-widest uppercase text-red-400 animate-pulse bg-slate-950/60 px-3 py-1 rounded-full backdrop-blur-sm">
